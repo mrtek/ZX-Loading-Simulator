@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZX Spectrum Loading Simulation &amp; Video Studio</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="sinclair-rainbow-bar"></div>
+
+    <header class="app-header">
+        <div class="logo-group">
+            <div class="power-led" title="Power LED"></div>
+            <div class="brand-title">ZX SPECTRUM +48K</div>
+            <div id="brand-subtitle" class="brand-subtitle">Tape Loading Simulator &amp; Video Studio</div>
+        </div>
+        <div class="header-status">
+            <div class="lang-switch-group">
+                <button id="lang-ru" class="lang-btn active">RU</button>
+                <span class="lang-divider">|</span>
+                <button id="lang-en" class="lang-btn">EN</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-layout">
+        <!-- LEFT COLUMN: CRT Screen & Playback -->
+        <section class="screen-column">
+            <div class="crt-monitor-cabinet">
+                <div class="crt-bezel">
+                    <canvas id="zx-canvas" width="1024" height="546"></canvas>
+                </div>
+            </div>
+
+            <!-- Playback & Scrubbing Panel -->
+            <div class="playback-panel">
+                <div class="timeline-row">
+                    <div id="time-display" class="time-display">00:00 / 00:15</div>
+                    <div class="timeline-slider-wrap">
+                        <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="15" step="0.05" value="0">
+                    </div>
+                    <div id="phase-pill" class="phase-indicator-pill">Ожидание запуска</div>
+                </div>
+
+                <div class="controls-row">
+                    <div class="btn-group">
+                        <button id="btn-play" class="btn btn-play">
+                            <span id="play-icon">▶</span> <span id="play-text">Старт</span>
+                        </button>
+                        <button id="btn-reset" class="btn btn-primary" title="Сбросить в начало">
+                            <span id="btn-reset-text">⏹ Сброс</span>
+                        </button>
+                    </div>
+
+                    <button id="btn-export-trigger" class="btn btn-export">
+                        <span id="btn-export-text">🎬 Экспорт Видео</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cassette Tape Visualizer -->
+            <div class="cassette-deck">
+                <div id="tape-drive-label" class="cassette-label">TAPE DRIVE</div>
+                <div class="cassette-wheels">
+                    <div id="wheel-left" class="wheel"></div>
+                    <div id="wheel-right" class="wheel"></div>
+                </div>
+                <canvas id="oscilloscope-canvas" class="oscilloscope-canvas"></canvas>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Settings & Controls (2-column balanced layout on FullHD) -->
+        <aside class="sidebar-column">
+            <!-- Sub-column A: Image & Style -->
+            <div class="sidebar-subcol">
+                <!-- 1. Image Upload -->
+                <div class="settings-card">
+                    <div id="card-upload-header" class="card-title clickable-header" title="Нажмите для выбора файла">
+                        <span class="icon">📁</span> <span id="card-upload-title">Загрузка изображения</span>
+                    </div>
+
+                    <input type="file" id="file-input" accept="image/*" style="display: none;">
+
+                    <button id="btn-upload-file" class="btn btn-upload-prominent" type="button">
+                        📂 <span id="lbl-btn-upload">Загрузить своё изображение...</span>
+                    </button>
+
+                    <div id="drop-zone" class="drop-zone">
+                        <div class="drop-zone-icon">📥</div>
+                        <div id="drop-zone-text" class="drop-zone-text">Перетащите картинку сюда</div>
+                        <div id="drop-zone-hint" class="drop-zone-hint">или нажмите для выбора файла (PNG, JPG, WEBP)</div>
+                    </div>
+
+                    <div id="image-preview-container" class="image-preview-row" style="display: none;" title="Нажмите для выбора другой картинки">
+                        <img id="image-thumb" class="image-preview-thumb" src="" alt="Thumbnail">
+                        <div class="image-info">
+                            <div id="image-filename" class="image-filename">dragon.png</div>
+                            <div id="image-dimensions" class="image-meta">1024 × 546 px</div>
+                        </div>
+                    </div>
+
+                    <div class="btn-preset-group">
+                        <button id="btn-preset-dragon" class="btn btn-primary btn-sm">🐲 Дракон (1024×546)</button>
+                        <button id="btn-preset-jetpac" class="btn btn-primary btn-sm">Jetpac</button>
+                    </div>
+                </div>
+
+                <!-- 2. ZX Spectrum Style & Graphics -->
+                <div class="settings-card">
+                    <div class="card-title">
+                        <span class="icon">🎨</span> <span id="card-style-title">Стиль, Рамка и Пропорции</span>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <span id="lbl-program-title">Название программы (Header):</span>
+                        </div>
+                        <input type="text" id="program-title-input" class="input-text" maxlength="10" value="DRAGON">
+                    </div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <span id="lbl-aspect-ratio">Соотношение сторон:</span>
+                        </div>
+                        <div class="toggle-pills">
+                            <div id="aspect-auto" class="toggle-pill active">★ Как у картинки</div>
+                            <div id="aspect-16x9" class="toggle-pill">16:9</div>
+                            <div id="aspect-4x3" class="toggle-pill">4:3</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <span id="lbl-border-style">Бордюр (рамка):</span>
+                        </div>
+                        <div class="toggle-pills">
+                            <div id="border-std" class="toggle-pill active">Классический</div>
+                            <div id="border-thin" class="toggle-pill">Тонкий</div>
+                            <div id="border-none" class="toggle-pill">Без бордюра</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <span id="lbl-color-mode">Режим цвета:</span>
+                        </div>
+                        <div class="toggle-pills">
+                            <div id="mode-truecolor" class="toggle-pill active">Оригинал (Четкий)</div>
+                            <div id="mode-authentic" class="toggle-pill">ZX 16 цветов</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-column B: Duration, Audio & Export -->
+            <div class="sidebar-subcol">
+                <!-- 3. Duration & Timings -->
+                <div class="settings-card">
+                    <div class="card-title">
+                        <span class="icon">⏱</span> <span id="card-duration-title">Длительность видео</span>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <span id="lbl-total-duration">Общая длительность:</span>
+                            <span id="duration-val" class="val-badge">15 сек</span>
+                        </div>
+                        <input type="range" id="duration-slider" class="slider-custom" min="3" max="120" step="1" value="15">
+                    </div>
+
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="skip-intro-checkbox">
+                        <span id="lbl-skip-intro">Пропустить ввод команды (сразу загрузка с ленты)</span>
+                    </label>
+                </div>
+
+                <!-- 4. Tape Audio -->
+                <div class="settings-card">
+                    <div class="card-title">
+                        <span class="icon">🔊</span> <span id="card-audio-title">Звук магнитофона</span>
+                    </div>
+
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="sound-enabled-checkbox" checked>
+                        <span id="lbl-enable-sound">Включить звук загрузки</span>
+                    </label>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <span id="lbl-volume">Громкость воспроизведения:</span>
+                            <span id="volume-val" class="val-badge">50%</span>
+                        </div>
+                        <input type="range" id="volume-slider" class="slider-custom" min="0" max="100" step="5" value="50">
+                    </div>
+                </div>
+
+                <!-- 5. Export Settings -->
+                <div class="settings-card">
+                    <div class="card-title">
+                        <span class="icon">🎥</span> <span id="card-export-title">Параметры экспорта и сохранения</span>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <span id="lbl-resolution">Разрешение видео:</span>
+                        </div>
+                        <div class="toggle-pills">
+                            <div id="res-1080p" class="toggle-pill active">1080p HD</div>
+                            <div id="res-720p" class="toggle-pill">720p</div>
+                            <div id="res-4x3" class="toggle-pill">4:3 TV</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <span id="lbl-format">Формат файла:</span>
+                        </div>
+                        <div class="toggle-pills">
+                            <div id="fmt-mp4" class="toggle-pill active">MP4 (H.264)</div>
+                            <div id="fmt-webm" class="toggle-pill">WebM</div>
+                        </div>
+                    </div>
+
+                    <label class="checkbox-row" style="margin-top: 6px;">
+                        <input type="checkbox" id="ask-save-location-checkbox" checked>
+                        <span id="lbl-ask-save">Спрашивать, куда сохранить («Сохранить как...»)</span>
+                    </label>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Modal for Video Export -->
+    <div id="export-modal" class="modal-overlay">
+        <div class="export-modal-box">
+            <div id="modal-title" class="modal-title">ЭКСПОРТ ВИДЕО</div>
+            <div id="modal-percent" class="modal-percent">0%</div>
+
+            <div class="progress-bar-container">
+                <div id="progress-bar-fill" class="progress-bar-fill"></div>
+            </div>
+
+            <div id="modal-status" class="modal-status-text">Инициализация записи...</div>
+            <div id="modal-saved-path" class="saved-location-box" style="display: none;"></div>
+
+            <button id="btn-download-video" class="btn btn-export" style="margin-top: 12px; width: 100%; display: none;">
+                <span id="btn-download-text">💾 Скачать видео файл</span>
+            </button>
+
+            <button id="btn-cancel-export" class="btn btn-primary" style="margin-top: 8px; width: 100%;">
+                <span id="btn-cancel-text">Отмена</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="assets/default_images.js?v=10"></script>
+    <script src="zx_converter.js?v=10"></script>
+    <script src="zx_audio.js?v=10"></script>
+    <script src="zx_emulator.js?v=10"></script>
+    <script src="video_exporter.js?v=10"></script>
+    <script src="app.js?v=10"></script>
+</body>
+</html>
