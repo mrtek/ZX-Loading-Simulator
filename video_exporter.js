@@ -101,6 +101,7 @@ class ZXVideoExporter {
 
         // 1. If "Ask where to save" is enabled and supported, prompt the user IMMEDIATELY (within the click gesture context)
         let fileHandle = null;
+        let pickerCancelled = false;
         if (askSaveLocation && window.showSaveFilePicker) {
             try {
                 fileHandle = await window.showSaveFilePicker({
@@ -114,12 +115,11 @@ class ZXVideoExporter {
                 });
             } catch (pickerErr) {
                 if (pickerErr.name === 'AbortError') {
-                    // User pressed Cancel in the file picker dialog
-                    this.isExporting = false;
-                    this.abortController = null;
-                    return { cancelled: true };
+                    pickerCancelled = true;
+                    console.log('showSaveFilePicker was cancelled or restricted path (e.g. drive root D:\\) selected. Falling back to direct browser download.');
+                } else {
+                    console.warn('showSaveFilePicker prompt failed, will fallback to download:', pickerErr);
                 }
-                console.warn('showSaveFilePicker prompt failed, will fallback to download:', pickerErr);
                 fileHandle = null;
             }
         }
@@ -233,6 +233,7 @@ class ZXVideoExporter {
                 filename,
                 blob: finalBlob,
                 savedViaPicker,
+                pickerCancelled,
                 format,
                 cleanMime
             };

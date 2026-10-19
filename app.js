@@ -10,6 +10,7 @@ const I18N = {
         btnPause: "Пауза",
         btnReset: "⏹ Сброс",
         btnExport: "🎬 Экспорт Видео",
+        btnExportGif: "🎞️ Экспорт GIF",
         tapeDrive: "TAPE DRIVE",
         cardUploadTitle: "Загрузка изображения",
         lblBtnUpload: "Загрузить своё изображение...",
@@ -18,7 +19,8 @@ const I18N = {
         btnPresetJetpac: "Jetpac",
         btnPresetHobbit: "📜 The Hobbit (.SCR)",
         alertInvalidFile: "Пожалуйста, выберите файл изображения (PNG, JPG, WEBP) или экран ZX Spectrum (.SCR).",
-        lblExportHint: "Экспорт видео происходит в реальном времени (15 сек. будут экспортироваться 15 сек.)",
+        lblExportHint: "Видео: 15 сек. со звуком • GIF: быстрый экспорт анимации",
+        lblGifResolution: "Разрешение GIF:",
         mp4NotSupported: "Формат MP4 (H.264) не поддерживается вашим браузером",
         cardDurationTitle: "Длительность видео",
         lblTotalDuration: "Общая длительность:",
@@ -42,10 +44,14 @@ const I18N = {
         lblResolution: "Разрешение видео:",
         lblFormat: "Формат файла:",
         lblAskSave: "Спрашивать, куда сохранить («Сохранить как...»)",
+        lblAskSaveHint: "Сохраняйте в любую подпапку (в корень диска D:\\ браузер не дает сохранять из соображений безопасности Chrome).",
         modalTitle: "ЭКСПОРТ ВИДЕО",
+        modalTitleGif: "ЭКСПОРТ GIF",
         btnCancelText: "Отмена",
         modalInit: "Инициализация записи...",
+        modalInitGif: "Подготовка кадров GIF...",
         modalDone: "Готово! Видео успешно создано и сохранено.",
+        modalDoneGif: "Готово! GIF успешно создан и сохранен.",
         aspectRatioRatio: "соотношение",
         phases: {
             boot: "Sinclair Prompt",
@@ -68,6 +74,7 @@ const I18N = {
         btnPause: "Pause",
         btnReset: "⏹ Reset",
         btnExport: "🎬 Export Video",
+        btnExportGif: "🎞️ Export GIF",
         tapeDrive: "TAPE DRIVE",
         cardUploadTitle: "Image Upload",
         lblBtnUpload: "Upload custom image...",
@@ -76,7 +83,8 @@ const I18N = {
         btnPresetJetpac: "Jetpac",
         btnPresetHobbit: "📜 The Hobbit (.SCR)",
         alertInvalidFile: "Please select an image file (PNG, JPG, WEBP) or ZX Spectrum screen (.SCR).",
-        lblExportHint: "Video export is in real-time (15s will export in 15s)",
+        lblExportHint: "Video: 15s with sound • GIF: fast offline export",
+        lblGifResolution: "GIF Resolution:",
         mp4NotSupported: "MP4 (H.264) format is not supported by your browser",
         cardDurationTitle: "Video Duration",
         lblTotalDuration: "Total duration:",
@@ -99,10 +107,14 @@ const I18N = {
         cardExportTitle: "Export & Save Settings",
         lblResolution: "Video resolution:",
         lblAskSave: "Ask where to save (\"Save As...\" dialog)",
+        lblAskSaveHint: "Save into any subfolder (Chrome prevents saving directly to root D:\\ for security reasons).",
         modalTitle: "VIDEO EXPORT",
+        modalTitleGif: "GIF EXPORT",
         btnCancelText: "Cancel",
         modalInit: "Initializing recording...",
+        modalInitGif: "Preparing GIF frames...",
         modalDone: "Done! Video created and saved.",
+        modalDoneGif: "Done! GIF created and saved.",
         aspectRatioRatio: "ratio",
         phases: {
             boot: "Sinclair Prompt",
@@ -134,6 +146,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnResetText = document.getElementById('btn-reset-text');
     const btnExportTrigger = document.getElementById('btn-export-trigger');
     const btnExportText = document.getElementById('btn-export-text');
+    const btnExportGif = document.getElementById('btn-export-gif');
+    const btnExportGifText = document.getElementById('btn-export-gif-text');
 
     const wheelLeft = document.getElementById('wheel-left');
     const wheelRight = document.getElementById('wheel-right');
@@ -190,6 +204,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const res4x3 = document.getElementById('res-4x3');
     const fmtMp4 = document.getElementById('fmt-mp4');
     const fmtWebm = document.getElementById('fmt-webm');
+    const gifRes512 = document.getElementById('gif-res-512');
+    const gifRes384 = document.getElementById('gif-res-384');
+    const gifResOrig = document.getElementById('gif-res-orig');
     const askSaveLocationCheckbox = document.getElementById('ask-save-location-checkbox');
 
     const exportModal = document.getElementById('export-modal');
@@ -215,6 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         volume: 0.5,
         exportResolution: '1080p',
         exportFormat: 'mp4',
+        gifResolution: 512,
         askSaveLocation: true,
         isPlaying: false,
         currentTime: 0,
@@ -233,6 +251,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         borderStyle: state.borderStyle
     });
     const exporter = new ZXVideoExporter(simulation, audioEngine);
+    const gifExporter = new ZXGifExporter(simulation);
 
     // 4. Preload Font
     try {
@@ -299,8 +318,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('lbl-resolution').textContent = t.lblResolution;
         document.getElementById('lbl-format').textContent = t.lblFormat;
         document.getElementById('lbl-ask-save').textContent = t.lblAskSave;
+        const lblAskSaveHint = document.getElementById('lbl-ask-save-hint');
+        if (lblAskSaveHint) lblAskSaveHint.textContent = t.lblAskSaveHint;
         btnResetText.textContent = t.btnReset;
         btnExportText.textContent = t.btnExport;
+        if (btnExportGifText) btnExportGifText.textContent = t.btnExportGif;
+        const lblGifRes = document.getElementById('lbl-gif-resolution');
+        if (lblGifRes) lblGifRes.textContent = t.lblGifResolution;
         playText.textContent = state.isPlaying ? t.btnPause : t.btnStart;
 
         document.getElementById('modal-title').textContent = t.modalTitle;
@@ -565,8 +589,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (lblExportHint) {
             lblExportHint.textContent = (state.lang === 'ru') 
-                ? `Экспорт видео происходит в реальном времени (то есть ${state.duration} сек. будут экспортироваться ${state.duration} сек.)` 
-                : `Video export is in real-time (${state.duration}s will export in ${state.duration}s)`;
+                ? `Видео: ${state.duration} сек. со звуком • GIF: быстрый оффлайн-экспорт` 
+                : `Video: ${state.duration}s with sound • GIF: fast offline export`;
         }
     }
 
@@ -887,6 +911,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         fmtMp4.classList.remove('active');
     });
 
+    // GIF Resolution Options
+    if (gifRes512) {
+        gifRes512.addEventListener('click', () => {
+            state.gifResolution = 512;
+            gifRes512.classList.add('active');
+            gifRes384.classList.remove('active');
+            gifResOrig.classList.remove('active');
+        });
+    }
+
+    if (gifRes384) {
+        gifRes384.addEventListener('click', () => {
+            state.gifResolution = 384;
+            gifRes384.classList.add('active');
+            gifRes512.classList.remove('active');
+            gifResOrig.classList.remove('active');
+        });
+    }
+
+    if (gifResOrig) {
+        gifResOrig.addEventListener('click', () => {
+            state.gifResolution = 256;
+            gifResOrig.classList.add('active');
+            gifRes512.classList.remove('active');
+            gifRes384.classList.remove('active');
+        });
+    }
+
     askSaveLocationCheckbox.addEventListener('change', (e) => {
         state.askSaveLocation = e.target.checked;
     });
@@ -929,6 +981,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const t = I18N[state.lang];
         exportModal.classList.add('active');
+        document.getElementById('modal-title').textContent = t.modalTitle;
         modalPercent.textContent = '0%';
         progressBarFill.style.width = '0%';
         modalStatus.textContent = t.modalInit;
@@ -947,8 +1000,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
             onComplete: (r) => {
                 modalStatus.textContent = t.modalDone;
-                modalSavedPath.style.display = 'block';
-                modalSavedPath.textContent = `💾 ${r.filename}`;
+                modalSavedPath.style.display = 'flex';
+                const fallbackMsg = (state.lang === 'ru')
+                    ? '⚠️ Внимание: Браузер блокирует сохранение напрямую в корень диска (D:\\, C:\\). Файл сохранен через стандартную загрузку браузера (в папку «Загрузки»), либо сохраняйте в любую подпапку.'
+                    : '⚠️ Note: Browser blocks saving directly to root drive (D:\\, C:\\). File was saved via standard browser download.';
+
+                modalSavedPath.innerHTML = `
+                    <div class="saved-file-info">💾 ${r.filename}</div>
+                    ${r.pickerCancelled ? `<div class="picker-fallback-note">${fallbackMsg}</div>` : ''}
+                    <button id="btn-download-video-again" class="btn btn-primary" style="margin-top: 6px; font-size: 11px; padding: 4px 12px; width: auto;">
+                        ⬇️ ${(state.lang === 'ru') ? 'Скачать видео еще раз' : 'Download video again'}
+                    </button>
+                `;
+                const btnAgain = document.getElementById('btn-download-video-again');
+                if (btnAgain) {
+                    btnAgain.onclick = () => exporter.downloadBlob(r.blob, r.filename);
+                }
                 btnCancelExport.textContent = (state.lang === 'ru') ? 'Закрыть' : 'Close';
 
                 setTimeout(() => {
@@ -979,8 +1046,70 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // 14. GIF Export Trigger
+    if (btnExportGif) {
+        btnExportGif.addEventListener('click', async () => {
+            pausePlayback();
+
+            const t = I18N[state.lang];
+            exportModal.classList.add('active');
+            document.getElementById('modal-title').textContent = t.modalTitleGif;
+            modalPercent.textContent = '0%';
+            progressBarFill.style.width = '0%';
+            modalStatus.textContent = t.modalInitGif;
+            modalSavedPath.style.display = 'none';
+            btnCancelExport.textContent = t.btnCancelText;
+
+            const res = await gifExporter.exportGif({
+                duration: state.duration,
+                fps: 15,
+                width: state.gifResolution,
+                askSaveLocation: state.askSaveLocation,
+                onProgress: (p) => {
+                    modalPercent.textContent = `${p.percent}%`;
+                    progressBarFill.style.width = `${p.percent}%`;
+                    modalStatus.textContent = p.status || '...';
+                },
+                onComplete: (r) => {
+                    modalStatus.textContent = t.modalDoneGif;
+                    modalSavedPath.style.display = 'flex';
+                    const fallbackMsg = (state.lang === 'ru')
+                        ? '⚠️ Внимание: Браузер блокирует сохранение напрямую в корень диска (D:\\, C:\\). Файл сохранен через стандартную загрузку браузера (в папку «Загрузки»), либо сохраняйте в любую подпапку.'
+                        : '⚠️ Note: Browser blocks saving directly to root drive (D:\\, C:\\). File was saved via standard browser download.';
+
+                    modalSavedPath.innerHTML = `
+                        <div class="saved-file-info">💾 ${r.filename} (${(r.size / 1024).toFixed(0)} KB)</div>
+                        ${r.pickerCancelled ? `<div class="picker-fallback-note">${fallbackMsg}</div>` : ''}
+                        <button id="btn-download-gif-again" class="btn btn-primary" style="margin-top: 6px; font-size: 11px; padding: 4px 12px; width: auto;">
+                            ⬇️ ${(state.lang === 'ru') ? 'Скачать файл еще раз' : 'Download file again'}
+                        </button>
+                    `;
+                    const btnAgain = document.getElementById('btn-download-gif-again');
+                    if (btnAgain) {
+                        btnAgain.onclick = () => gifExporter.downloadBlob(r.blob, r.filename);
+                    }
+                    btnCancelExport.textContent = (state.lang === 'ru') ? 'Закрыть' : 'Close';
+                },
+                onError: (err) => {
+                    if (!exportModal.classList.contains('active')) return;
+                    modalStatus.textContent = `Error: ${err.message}`;
+                    setTimeout(() => {
+                        exportModal.classList.remove('active');
+                    }, 3000);
+                }
+            });
+
+            if (res && res.cancelled) {
+                exportModal.classList.remove('active');
+            }
+        });
+    }
+
     btnCancelExport.addEventListener('click', () => {
         exporter.cancel();
+        if (typeof gifExporter !== 'undefined') {
+            gifExporter.cancel();
+        }
         exportModal.classList.remove('active');
         updateCanvasDimensions(); // Restores correct canvas size based on current aspect mode
         simulation.renderAtTime(state.currentTime);

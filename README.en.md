@@ -9,7 +9,7 @@
 
 ![ZX Spectrum Tape Loading Simulator](screenshots/tlsEN.png)
 
-An interactive simulation and video studio for generating authentic tape loading videos of images on the legendary **ZX Spectrum 48K** computer.
+An interactive simulation and studio for generating authentic tape loading videos and animated GIFs of images on the legendary **ZX Spectrum 48K** computer.
 
 **100% Standalone Single Page Application**: runs entirely in the client-side browser. Does not require Node.js, Python, FFmpeg, or any backend servers.
 
@@ -86,5 +86,16 @@ All fonts, audio synthesizers, and algorithms are embedded directly into the pro
    - **Saving**:
      - When *"Ask where to save"* is enabled, opens the standard system "Save As..." dialog (in supported browsers).
      - Alternatively, downloads the file directly to your browser's Downloads folder.
+
+7. **Animated GIF Export (100% Offline & Pure Client-Side)**:
+   - **Fast offline rendering**: frames are rendered without real-time playback delay directly in the browser (a 15-second simulation exports in ~1–2 seconds).
+   - **Selectable resolutions**: 512px (optimal), 384px (compact), 256px (original ZX Spectrum pixel scale).
+   - **Automatic looping**: infinite playback loop, ideal for embeds, blogs, and social media.
+   - **Compact file size**: thanks to the block-based nature of ZX Spectrum graphics, the output GIF is typically only ~200 KB – 1 MB.
+   - **Saving**: supports the "Save As..." dialog or automatic download with browser-policy fallback.
+
+   <p align="center">
+     <img src="screenshots/zx_JETPAC_15s.gif" alt="Example of exported ZX Spectrum loading animated GIF (Jetpac)" width="512">
+   </p>
 
 ---

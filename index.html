@@ -54,9 +54,14 @@
                     </div>
 
                     <div class="export-btn-container">
-                        <button id="btn-export-trigger" class="btn btn-export">
-                            <span id="btn-export-text">🎬 Экспорт Видео</span>
-                        </button>
+                        <div class="export-btn-group">
+                            <button id="btn-export-trigger" class="btn btn-export">
+                                <span id="btn-export-text">🎬 Экспорт Видео</span>
+                            </button>
+                            <button id="btn-export-gif" class="btn btn-export-gif">
+                                <span id="btn-export-gif-text">🎞️ Экспорт GIF</span>
+                            </button>
+                        </div>
                         <div id="lbl-export-hint" class="export-realtime-hint">
                             Экспорт видео происходит в реальном времени (15 сек. будут экспортироваться 15 сек.)
                         </div>
@@ -227,10 +232,24 @@
                         </div>
                     </div>
 
+                    <div class="form-group">
+                        <div class="label-row">
+                            <span id="lbl-gif-resolution">Разрешение GIF:</span>
+                        </div>
+                        <div class="toggle-pills">
+                            <div id="gif-res-512" class="toggle-pill active">512px (Оптим.)</div>
+                            <div id="gif-res-384" class="toggle-pill">384px</div>
+                            <div id="gif-res-orig" class="toggle-pill">256px (ZX)</div>
+                        </div>
+                    </div>
+
                     <label class="checkbox-row" style="margin-top: 6px;">
                         <input type="checkbox" id="ask-save-location-checkbox" checked>
                         <span id="lbl-ask-save">Спрашивать, куда сохранить («Сохранить как...»)</span>
                     </label>
+                    <div id="lbl-ask-save-hint" style="font-size: 10px; color: var(--text-muted); padding-left: 20px; line-height: 1.3;">
+                        Сохраняйте в любую подпапку (в корень диска D:\ браузер не дает сохранять из соображений безопасности Chrome).
+                    </div>
                 </div>
             </div>
         </aside>
@@ -256,11 +275,13 @@
     </div>
 
     <!-- Application Scripts -->
-    <script src="assets/default_images.js?v=11"></script>
-    <script src="zx_converter.js?v=11"></script>
-    <script src="zx_audio.js?v=11"></script>
-    <script src="zx_emulator.js?v=11"></script>
-    <script src="video_exporter.js?v=11"></script>
-    <script src="app.js?v=11"></script>
+    <script src="assets/default_images.js?v=12"></script>
+    <script src="assets/gifenc.js?v=12"></script>
+    <script src="zx_converter.js?v=12"></script>
+    <script src="zx_audio.js?v=12"></script>
+    <script src="zx_emulator.js?v=12"></script>
+    <script src="video_exporter.js?v=12"></script>
+    <script src="gif_exporter.js?v=12"></script>
+    <script src="app.js?v=12"></script>
 </body>
 </html>
