@@ -176,6 +176,13 @@ class ZXImageConverter {
 
         const scanlineOrder = generateZXScanlineOrder(height);
 
+        let scrBytes = null;
+        try {
+            scrBytes = ZXImageConverter.createScrBytesFromCanvases(monoCanvas, authenticColorCanvas);
+        } catch (e) {
+            console.warn('createScrBytesFromCanvases error:', e);
+        }
+
         return {
             width,
             height,
@@ -183,7 +190,8 @@ class ZXImageConverter {
             fullColorCanvas,
             authenticColorCanvas,
             monoCanvas,
-            scanlineOrder
+            scanlineOrder,
+            scrBytes
         };
     }
 
@@ -299,6 +307,8 @@ class ZXImageConverter {
             console.warn('Preview URL creation failed:', e);
         }
 
+        const scrBytes = bytes.slice(scrOffset, scrOffset + 6912);
+
         return {
             width,
             height,
@@ -308,8 +318,96 @@ class ZXImageConverter {
             monoCanvas: monoCanvas,
             scanlineOrder,
             previewUrl,
-            isScr: true
+            isScr: true,
+            scrBytes
         };
+    }
+
+    /**
+     * Converts arbitrary canvas images to 6912 authentic ZX Spectrum screen bytes
+     * (6144 bytes bitmap + 768 bytes attributes)
+     */
+    static createScrBytesFromCanvases(monoCanvas, authCanvas) {
+        const scr = new Uint8Array(6912);
+        const temp = document.createElement('canvas');
+        temp.width = 256;
+        temp.height = 192;
+        const ctx = temp.getContext('2d', { willReadFrequently: true });
+        ctx.imageSmoothingEnabled = false;
+
+        // 1. Resample monoCanvas to 256x192
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 256, 192);
+        ctx.drawImage(monoCanvas, 0, 0, 256, 192);
+        const monoImg = ctx.getImageData(0, 0, 256, 192).data;
+
+        // Bitmap: 6144 bytes in ZX Spectrum 3-thirds interleaved order
+        for (let y = 0; y < 192; y++) {
+            const third = Math.floor(y / 64);
+            const lineInChar = y % 8;
+            const charRow = Math.floor((y % 64) / 8);
+            const lineStart = third * 2048 + lineInChar * 256 + charRow * 32;
+
+            for (let col = 0; col < 32; col++) {
+                let byteVal = 0;
+                for (let bit = 7; bit >= 0; bit--) {
+                    const x = col * 8 + (7 - bit);
+                    const idx = (y * 256 + x) * 4;
+                    // In monochrome canvas, ink is black (luminance < 128)
+                    const lum = 0.299 * monoImg[idx] + 0.587 * monoImg[idx + 1] + 0.114 * monoImg[idx + 2];
+                    if (lum < 128) {
+                        byteVal |= (1 << bit);
+                    }
+                }
+                scr[lineStart + col] = byteVal;
+            }
+        }
+
+        // 2. Resample authCanvas to 256x192 to extract 768 attribute bytes (32x24 blocks)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 256, 192);
+        ctx.drawImage(authCanvas, 0, 0, 256, 192);
+        const colorImg = ctx.getImageData(0, 0, 256, 192).data;
+
+        // Attributes: 768 bytes starting at offset 6144
+        const attrOffset = 6144;
+        for (let row = 0; row < 24; row++) {
+            for (let col = 0; col < 32; col++) {
+                // Find most frequent palette colors in this 8x8 block
+                const colorCounts = new Map();
+                for (let by = 0; by < 8; by++) {
+                    for (let bx = 0; bx < 8; bx++) {
+                        const px = col * 8 + bx;
+                        const py = row * 8 + by;
+                        const idx = (py * 256 + px) * 4;
+                        const r = colorImg[idx], g = colorImg[idx + 1], b = colorImg[idx + 2];
+
+                        let bestC = 0, minDist = Infinity;
+                        for (let c = 0; c < ZX_PALETTE.length; c++) {
+                            const pal = ZX_PALETTE[c];
+                            const dr = r - pal.r, dg = g - pal.g, db = b - pal.b;
+                            const d = dr * dr + dg * dg + db * db;
+                            if (d < minDist) { minDist = d; bestC = pal.code; }
+                        }
+                        colorCounts.set(bestC, (colorCounts.get(bestC) || 0) + 1);
+                    }
+                }
+
+                // Primary (paper) and secondary (ink)
+                const sorted = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]);
+                const c1 = sorted[0] ? sorted[0][0] : 0;
+                const c2 = sorted[1] ? sorted[1][0] : (c1 === 0 ? 7 : 0);
+
+                const bright = (c1 >= 8 || c2 >= 8) ? 1 : 0;
+                const paper = (c1 % 8);
+                const ink = (c2 % 8);
+                const attrByte = (bright << 6) | (paper << 3) | ink;
+
+                scr[attrOffset + row * 32 + col] = attrByte;
+            }
+        }
+
+        return scr;
     }
 }
 

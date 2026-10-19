@@ -34,35 +34,80 @@ class ZXLoadingTimeline {
     buildPhases() {
         const d = this.duration;
 
-        if (!this.skipIntro) {
-            // Standard loading sequence with Sinclair prompt and command typing
-            this.phases = [
-                { id: 'boot',       start: 0,        end: 0.05 * d, type: 'boot',   border: 'solid' },
-                { id: 'typing',     start: 0.05 * d, end: 0.14 * d, type: 'typing', border: 'solid' },
-                { id: 'hdr_pilot',  start: 0.14 * d, end: 0.25 * d, type: 'pilot',  border: 'pilot' },
-                { id: 'hdr_sync',   start: 0.25 * d, end: 0.26 * d, type: 'sync',   border: 'pilot' },
-                { id: 'hdr_data',   start: 0.26 * d, end: 0.34 * d, type: 'data',   border: 'data'  },
-                { id: 'pause',      start: 0.34 * d, end: 0.38 * d, type: 'pause',  border: 'solid' },
-                { id: 'dat_pilot',  start: 0.38 * d, end: 0.50 * d, type: 'pilot',  border: 'pilot' },
-                { id: 'dat_sync',   start: 0.50 * d, end: 0.51 * d, type: 'sync',   border: 'pilot' },
-                { id: 'bitmap',     start: 0.51 * d, end: 0.88 * d, type: 'data',   border: 'data'  },
-                { id: 'attr',       start: 0.88 * d, end: 0.96 * d, type: 'data',   border: 'data'  },
-                { id: 'complete',   start: 0.96 * d, end: 1.00 * d, type: 'beep',   border: 'solid' }
-            ];
+        // ROM constants:
+        // Header data (19 bytes) takes exactly 0.18s at standard ROM baud rate.
+        // Sync pulses (667 T + 735 T) take ~0.0004s (0.4ms).
+        const tHdrData = 0.18;
+        const tSync = 0.005;
+        const tBeep = 0.35;
+
+        let tBoot, tTyping, tHdrPilot, tPause, tDatPilot, tScreen;
+
+        if (d >= 40) {
+            // Authentic cassette tape mode (~42 - 50 seconds, exactly matching real ZX Spectrum 48K ROM tape load)
+            tBoot = !this.skipIntro ? 1.2 : 0;
+            tTyping = !this.skipIntro ? 1.8 : 0;
+            tHdrPilot = 5.0; // 8063 pulses @ 807 Hz = 4.995s
+            tPause = 1.0;
+            tDatPilot = 2.0; // 3223 pulses @ 807 Hz = 1.996s
+            const tPre = tBoot + tTyping + tHdrPilot + tSync + tHdrData + tPause + tDatPilot + tSync + tBeep;
+            tScreen = Math.max(1.0, d - tPre);
         } else {
-            // Fast loading sequence skipping Sinclair prompt typing
-            this.phases = [
-                { id: 'hdr_pilot',  start: 0,        end: 0.14 * d, type: 'pilot',  border: 'pilot' },
-                { id: 'hdr_sync',   start: 0.14 * d, end: 0.15 * d, type: 'sync',   border: 'pilot' },
-                { id: 'hdr_data',   start: 0.15 * d, end: 0.25 * d, type: 'data',   border: 'data'  },
-                { id: 'pause',      start: 0.25 * d, end: 0.29 * d, type: 'pause',  border: 'solid' },
-                { id: 'dat_pilot',  start: 0.29 * d, end: 0.44 * d, type: 'pilot',  border: 'pilot' },
-                { id: 'dat_sync',   start: 0.44 * d, end: 0.45 * d, type: 'sync',   border: 'pilot' },
-                { id: 'bitmap',     start: 0.45 * d, end: 0.88 * d, type: 'data',   border: 'data'  },
-                { id: 'attr',       start: 0.88 * d, end: 0.96 * d, type: 'data',   border: 'data'  },
-                { id: 'complete',   start: 0.96 * d, end: 1.00 * d, type: 'beep',   border: 'solid' }
-            ];
+            // Adaptive mode for faster previews (e.g. 15s) while keeping authentic header chirp and proportions
+            tBoot = !this.skipIntro ? Math.max(0.3, Math.min(1.2, d * 0.05)) : 0;
+            tTyping = !this.skipIntro ? Math.max(0.5, Math.min(1.8, d * 0.09)) : 0;
+            const tFixed = tBoot + tTyping + tHdrData + tSync * 2 + tBeep;
+            const tRem = Math.max(2.0, d - tFixed);
+
+            tHdrPilot = Math.max(0.8, Math.min(5.0, tRem * 0.15));
+            tPause = Math.max(0.4, Math.min(1.0, tRem * 0.06));
+            tDatPilot = Math.max(0.8, Math.min(2.0, tRem * 0.12));
+            tScreen = Math.max(1.0, tRem - (tHdrPilot + tPause + tDatPilot));
         }
+
+        // Screen payload: 6144 bytes bitmap (88.9%), 768 bytes attributes (11.1%)
+        const tBitmap = tScreen * (6144 / 6912);
+        const tAttr = tScreen * (768 / 6912);
+
+        let t = 0;
+        const p = [];
+
+        if (tBoot > 0) {
+            p.push({ id: 'boot', start: t, end: t + tBoot, type: 'boot', border: 'solid' });
+            t += tBoot;
+        }
+        if (tTyping > 0) {
+            p.push({ id: 'typing', start: t, end: t + tTyping, type: 'typing', border: 'solid' });
+            t += tTyping;
+        }
+
+        p.push({ id: 'hdr_pilot', start: t, end: t + tHdrPilot, type: 'pilot', border: 'pilot' });
+        t += tHdrPilot;
+
+        p.push({ id: 'hdr_sync', start: t, end: t + tSync, type: 'sync', border: 'pilot' });
+        t += tSync;
+
+        p.push({ id: 'hdr_data', start: t, end: t + tHdrData, type: 'data', border: 'data' });
+        t += tHdrData;
+
+        p.push({ id: 'pause', start: t, end: t + tPause, type: 'pause', border: 'solid' });
+        t += tPause;
+
+        p.push({ id: 'dat_pilot', start: t, end: t + tDatPilot, type: 'pilot', border: 'pilot' });
+        t += tDatPilot;
+
+        p.push({ id: 'dat_sync', start: t, end: t + tSync, type: 'sync', border: 'pilot' });
+        t += tSync;
+
+        p.push({ id: 'bitmap', start: t, end: t + tBitmap, type: 'data', border: 'data' });
+        t += tBitmap;
+
+        p.push({ id: 'attr', start: t, end: t + tAttr, type: 'data', border: 'data' });
+        t += tAttr;
+
+        p.push({ id: 'complete', start: t, end: Math.max(t + tBeep, d), type: 'beep', border: 'solid' });
+
+        this.phases = p;
     }
 
     getPhaseAt(time) {
@@ -225,65 +270,67 @@ class ZXLoadingSimulation {
     renderScreenArea(ctx, geom, phase) {
         const { screenX, screenY, screenW, screenH } = geom;
 
-        // Draw solid, pure white paper background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(screenX, screenY, screenW, screenH);
-
-        // High-resolution scalable font size: perfectly crisp, large and readable!
-        const fontSize = Math.max(26, Math.round(screenH * 0.065));
-        const fontStr = `${fontSize}px "ZX Spectrum-7 Regular", "Courier New", monospace`;
-
-        if (phase.id === 'boot') {
-            // Sinclair Copyright screen: Large, clear, bold, high contrast
-            ctx.fillStyle = '#000000';
-            ctx.font = fontStr;
-            ctx.textBaseline = 'bottom';
-            const textY1 = screenY + screenH - Math.round(fontSize * 2.6);
-            const textY2 = screenY + screenH - Math.round(fontSize * 1.0);
-            const textX = screenX + Math.round(screenW * 0.06);
-
-            ctx.fillText('© 1982 Sinclair Research Ltd', textX, textY1);
-
-            // Flashing [K] cursor on the command line below
-            if (Math.floor(this.currentTime * 3) % 2 === 0) {
-                this.drawCrispCursor(ctx, textX, textY2, fontSize, 'K');
-            }
-        } else if (phase.id === 'typing') {
-            // Command typing simulation: LOAD ""
-            ctx.fillStyle = '#000000';
-            ctx.font = fontStr;
-            ctx.textBaseline = 'bottom';
-            const textY1 = screenY + screenH - Math.round(fontSize * 2.6);
-            const textY2 = screenY + screenH - Math.round(fontSize * 1.0);
-            const textX = screenX + Math.round(screenW * 0.06);
-
-            ctx.fillText('© 1982 Sinclair Research Ltd', textX, textY1);
-
-            const fullCommand = 'LOAD ""';
-            const progress = phase.progressInPhase;
-            const charsToShow = Math.min(fullCommand.length, Math.floor(progress * (fullCommand.length + 2)));
-            const typedText = fullCommand.slice(0, charsToShow);
-
-            ctx.fillText(typedText, textX, textY2);
-
-            // Cursor [L] right after the typed text
-            const cursorChar = charsToShow < 4 ? 'K' : 'L';
-            const textWidth = ctx.measureText(typedText).width;
-            if (charsToShow < fullCommand.length || Math.floor(this.currentTime * 4) % 2 === 0) {
-                this.drawCrispCursor(ctx, textX + textWidth + 3, textY2, fontSize, cursorChar);
-            }
-        } else if (phase.id === 'hdr_data') {
-            // Header: Program: <TITLE>
-            ctx.fillStyle = '#000000';
-            ctx.font = fontStr;
-            ctx.textBaseline = 'top';
-            const titleX = screenX + Math.round(screenW * 0.06);
-            const titleY = screenY + Math.round(screenH * 0.08);
-            ctx.fillText(`Program: ${this.timeline.programTitle}`, titleX, titleY);
-        } else if (phase.id === 'bitmap' || phase.id === 'attr' || phase.id === 'complete') {
+        if (phase.id === 'bitmap' || phase.id === 'attr' || phase.id === 'complete') {
             // Progressive image loading with 100% pixel sharpness!
             this.renderProgressiveImage(ctx, geom, phase);
+            return;
         }
+
+        // Initialize 256x192 offscreen buffer matching authentic Sinclair screen dimensions
+        const width = 256;
+        const height = 192;
+        if (!this.frameCanvas || this.frameCanvas.width !== width || this.frameCanvas.height !== height) {
+            this.frameCanvas = document.createElement('canvas');
+            this.frameCanvas.width = width;
+            this.frameCanvas.height = height;
+            this.frameCtx = this.frameCanvas.getContext('2d');
+            this.frameCtx.imageSmoothingEnabled = false;
+        }
+        const fCtx = this.frameCtx;
+
+        // All non-image phases start with a clean, solid white paper background
+        fCtx.fillStyle = '#ffffff';
+        fCtx.fillRect(0, 0, width, height);
+        fCtx.fillStyle = '#000000';
+        fCtx.font = '20px "ZX Spectrum-7 Regular", monospace';
+        fCtx.textBaseline = 'top';
+
+        if (phase.id === 'boot') {
+            // Sinclair Copyright screen at power-on / reset
+            // Line 23 (bottom line, row 23: y = 184..191): © 1982 Sinclair Research Ltd
+            fCtx.fillText('© 1982 Sinclair Research Ltd', 0, 176);
+        } else if (phase.id === 'typing') {
+            // As soon as a key is pressed, copyright notice DISAPPEARS!
+            // Typing takes place on that exact same bottom line (row 23: y = 184..191)
+            const progress = phase.progressInPhase;
+            let typedText = 'LOAD ';
+            let cursorCol = 5;
+
+            if (progress >= 0.55) {
+                typedText = 'LOAD ""';
+                cursorCol = 7;
+            } else if (progress >= 0.35) {
+                typedText = 'LOAD "';
+                cursorCol = 6;
+            }
+
+            fCtx.fillText(typedText, 0, 176);
+
+            // Flashing inverted 8x8 character cell [L] immediately following the typed text
+            const isCursorVisible = (progress < 0.92) ? (Math.floor(this.currentTime * 3.5) % 2 === 0) : true;
+            if (isCursorVisible) {
+                this.drawCrisp8x8Cursor(fCtx, cursorCol * 8, 184, 'L');
+            }
+        } else if (phase.id === 'hdr_pilot' || phase.id === 'hdr_sync') {
+            // Header pilot and sync: pure clean white screen while tape pilot tone plays
+            // (Screen paper is visible in the center, animated stripes only in the border)
+        } else if (phase.id === 'hdr_data' || phase.id === 'pause' || phase.id === 'dat_pilot' || phase.id === 'dat_sync') {
+            // Header loaded: Program: <TITLE> remains displayed on screen during pause and data pilot
+            fCtx.fillText(`Program: ${this.timeline.programTitle}`, 16, 0);
+        }
+
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(this.frameCanvas, 0, 0, width, height, screenX, screenY, screenW, screenH);
     }
 
     /**
@@ -316,6 +363,14 @@ class ZXLoadingSimulation {
         // Clear frame to solid white paper (initial state of screen memory in Spectrum)
         fCtx.fillStyle = '#ffffff';
         fCtx.fillRect(0, 0, width, height);
+
+        if (phase.id === 'bitmap') {
+            // In real ZX Spectrum, Program: <TITLE> was printed in screen memory (row 1) and gets overwritten as scanlines load!
+            fCtx.fillStyle = '#000000';
+            fCtx.font = '20px "ZX Spectrum-7 Regular", monospace';
+            fCtx.textBaseline = 'top';
+            fCtx.fillText(`Program: ${this.timeline.programTitle}`, 16, 0);
+        }
 
         const colorCanvas = (this.renderMode === 'authentic' && authenticColorCanvas)
             ? authenticColorCanvas
@@ -355,18 +410,33 @@ class ZXLoadingSimulation {
     }
 
     /**
-     * Draw clean crisp flashing inverse cursor
+     * Draw authentic ZX Spectrum inverted 8x8 character cell cursor ([L] or [K])
      */
-    drawCrispCursor(ctx, x, y, size, letter = 'K') {
-        const boxW = Math.round(size * 0.75);
-        const boxH = Math.round(size * 0.95);
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(x, y - boxH + 2, boxW, boxH);
+    drawCrisp8x8Cursor(fCtx, x, y, letter = 'L') {
+        // 1. Draw solid black 8x8 character box
+        fCtx.fillStyle = '#000000';
+        fCtx.fillRect(x, y, 8, 8);
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${Math.round(size * 0.82)}px "ZX Spectrum-7 Regular", "Courier New", monospace`;
-        ctx.textBaseline = 'top';
-        ctx.fillText(letter, x + Math.round(size * 0.08), y - boxH + 3);
+        // 2. Draw white character glyph using authentic ZX Spectrum ROM 8x8 bitmap
+        fCtx.fillStyle = '#ffffff';
+        const glyph = (letter === 'K') ? [
+            0x00, 0x44, 0x48, 0x50, 0x60, 0x50, 0x48, 0x44
+        ] : [
+            0x00, 0x40, 0x40, 0x40, 0x40, 0x40, 0x7E, 0x00
+        ];
+
+        for (let py = 0; py < 8; py++) {
+            const row = glyph[py];
+            for (let px = 0; px < 8; px++) {
+                if ((row >> (7 - px)) & 1) {
+                    fCtx.fillRect(x + px, y + py, 1, 1);
+                }
+            }
+        }
+    }
+
+    drawCrispCursor(ctx, x, y, size, letter = 'K') {
+        this.drawCrisp8x8Cursor(this.frameCtx || ctx, x, y, letter);
     }
 }
 

@@ -177,6 +177,11 @@
                             <span id="duration-val" class="val-badge">15 сек</span>
                         </div>
                         <input type="range" id="duration-slider" class="slider-custom" min="3" max="120" step="1" value="15">
+                        <div class="toggle-pills" style="margin-top: 8px;">
+                            <div id="dur-preset-15" class="toggle-pill active" title="Быстрая демонстрация">⚡ 15 сек</div>
+                            <div id="dur-preset-30" class="toggle-pill" title="Средняя скорость">30 сек</div>
+                            <div id="dur-preset-45" class="toggle-pill" title="Оригинальная скорость кассеты ZX Spectrum 48K">📼 Кассета 45 сек</div>
+                        </div>
                     </div>
 
                     <label class="checkbox-row">
@@ -240,6 +245,20 @@
                             <div id="gif-res-512" class="toggle-pill active">512px (Оптим.)</div>
                             <div id="gif-res-384" class="toggle-pill">384px</div>
                             <div id="gif-res-orig" class="toggle-pill">256px (ZX)</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="gif-hold-last-frame-checkbox" checked>
+                            <span id="lbl-gif-hold-last-frame">Пауза на готовой картинке в GIF</span>
+                        </label>
+                        <div id="gif-hold-controls" style="margin-top: 8px; padding-left: 10px;">
+                            <div class="label-row" style="margin-bottom: 6px;">
+                                <span id="lbl-gif-hold-time" style="font-size: 12px; font-weight: 500; color: var(--text-primary);">Длительность паузы:</span>
+                                <span id="gif-hold-time-val" class="val-badge-large">5 сек</span>
+                            </div>
+                            <input type="range" id="gif-hold-time-slider" class="slider-custom" min="1" max="20" step="1" value="5">
                         </div>
                     </div>
 

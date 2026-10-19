@@ -24,6 +24,8 @@ class ZXGifExporter {
         const duration = options.duration || this.sim.timeline.duration;
         const fps = options.fps || 15;
         const width = options.width || 512;
+        const holdLastFrame = options.holdLastFrame !== undefined ? !!options.holdLastFrame : true;
+        const holdLastFrameSec = options.holdLastFrameSec !== undefined ? Math.max(0, Number(options.holdLastFrameSec)) : 5;
         const askSaveLocation = !!options.askSaveLocation;
         const onProgress = options.onProgress || (() => {});
         const onComplete = options.onComplete || (() => {});
@@ -86,16 +88,23 @@ class ZXGifExporter {
                     throw new Error('Экспорт отменен');
                 }
 
-                const currentTimeSec = f * dt;
+                const isLastFrame = (f === totalFrames - 1);
+                // For the last frame, render exactly at duration (finished state)
+                const currentTimeSec = isLastFrame ? duration : f * dt;
                 this.sim.renderAtTime(currentTimeSec);
 
                 const imgData = this.sim.ctx.getImageData(0, 0, targetW, targetH);
                 const palette = window.gifenc.quantize(imgData.data, maxColors);
                 const index = window.gifenc.applyPalette(imgData.data, palette);
 
+                // If holdLastFrame is enabled and holdLastFrameSec > 0, set long delay on the final frame
+                const currentFrameDelayMs = (isLastFrame && holdLastFrame && holdLastFrameSec > 0)
+                    ? Math.round(holdLastFrameSec * 1000)
+                    : frameDelayMs;
+
                 encoder.writeFrame(index, targetW, targetH, {
                     palette,
-                    delay: frameDelayMs,
+                    delay: currentFrameDelayMs,
                     repeat: 0 // Loop forever
                 });
 

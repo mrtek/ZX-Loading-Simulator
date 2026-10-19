@@ -128,12 +128,20 @@ class ZXVideoExporter {
             onProgress({ percent: 0, status: 'Подготовка звуковой дорожки...' });
 
             this.audio.init();
-            const audioBuffer = this.audio.generateAudioBuffer(duration, this.sim.timeline, 44100);
+            const scrBytes = this.sim.processedData?.scrBytes || null;
+            const audioBuffer = this.audio.generateAudioBuffer(duration, this.sim.timeline, 48000, scrBytes);
 
             const audioSource = this.audio.audioCtx.createBufferSource();
             audioSource.buffer = audioBuffer;
             const audioDest = this.audio.audioCtx.createMediaStreamDestination();
-            audioSource.connect(audioDest);
+
+            // Route through cassette lowpass filter for authentic cassette warmth in video export
+            const exportFilter = this.audio.audioCtx.createBiquadFilter();
+            exportFilter.type = 'lowpass';
+            exportFilter.frequency.setValueAtTime(8800, this.audio.audioCtx.currentTime);
+            exportFilter.Q.setValueAtTime(0.707, this.audio.audioCtx.currentTime);
+            audioSource.connect(exportFilter);
+            exportFilter.connect(audioDest);
 
             const videoStream = this.sim.canvas.captureStream(fps);
             const combinedStream = new MediaStream([

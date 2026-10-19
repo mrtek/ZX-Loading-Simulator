@@ -21,10 +21,15 @@ const I18N = {
         alertInvalidFile: "Пожалуйста, выберите файл изображения (PNG, JPG, WEBP) или экран ZX Spectrum (.SCR).",
         lblExportHint: "Видео: 15 сек. со звуком • GIF: быстрый экспорт анимации",
         lblGifResolution: "Разрешение GIF:",
+        lblGifHoldLastFrame: "Пауза на готовой картинке в GIF",
+        lblGifHoldTime: "Длительность паузы:",
         mp4NotSupported: "Формат MP4 (H.264) не поддерживается вашим браузером",
         cardDurationTitle: "Длительность видео",
         lblTotalDuration: "Общая длительность:",
         secSuffix: "сек",
+        durPreset15: "⚡ 15 сек",
+        durPreset30: "30 сек",
+        durPreset45: "📼 Кассета 45 сек",
         lblSkipIntro: "Пропустить ввод команды (сразу загрузка с ленты)",
         cardStyleTitle: "Стиль, Рамка и Пропорции",
         lblProgramTitle: "Название программы (Header):",
@@ -85,10 +90,15 @@ const I18N = {
         alertInvalidFile: "Please select an image file (PNG, JPG, WEBP) or ZX Spectrum screen (.SCR).",
         lblExportHint: "Video: 15s with sound • GIF: fast offline export",
         lblGifResolution: "GIF Resolution:",
+        lblGifHoldLastFrame: "Pause on completed picture in GIF",
+        lblGifHoldTime: "Pause duration:",
         mp4NotSupported: "MP4 (H.264) format is not supported by your browser",
         cardDurationTitle: "Video Duration",
         lblTotalDuration: "Total duration:",
         secSuffix: "sec",
+        durPreset15: "⚡ 15 sec",
+        durPreset30: "30 sec",
+        durPreset45: "📼 Tape 45 sec",
         lblSkipIntro: "Skip command typing (start tape immediately)",
         cardStyleTitle: "Style, Frame & Aspect Ratio",
         lblProgramTitle: "Program Title (Header):",
@@ -181,6 +191,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const durationSlider = document.getElementById('duration-slider');
     const durationVal = document.getElementById('duration-val');
+    const durPreset15 = document.getElementById('dur-preset-15');
+    const durPreset30 = document.getElementById('dur-preset-30');
+    const durPreset45 = document.getElementById('dur-preset-45');
     const skipIntroCheckbox = document.getElementById('skip-intro-checkbox');
     const programTitleInput = document.getElementById('program-title-input');
 
@@ -207,6 +220,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const gifRes512 = document.getElementById('gif-res-512');
     const gifRes384 = document.getElementById('gif-res-384');
     const gifResOrig = document.getElementById('gif-res-orig');
+    const gifHoldLastFrameCheckbox = document.getElementById('gif-hold-last-frame-checkbox');
+    const gifHoldTimeSlider = document.getElementById('gif-hold-time-slider');
+    const gifHoldTimeVal = document.getElementById('gif-hold-time-val');
+    const gifHoldControls = document.getElementById('gif-hold-controls');
     const askSaveLocationCheckbox = document.getElementById('ask-save-location-checkbox');
 
     const exportModal = document.getElementById('export-modal');
@@ -233,6 +250,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         exportResolution: '1080p',
         exportFormat: 'mp4',
         gifResolution: 512,
+        gifHoldLastFrame: true,
+        gifHoldLastFrameSec: 5,
         askSaveLocation: true,
         isPlaying: false,
         currentTime: 0,
@@ -288,6 +307,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('card-duration-title').textContent = t.cardDurationTitle;
         document.getElementById('lbl-total-duration').textContent = t.lblTotalDuration;
         durationVal.textContent = `${state.duration} ${t.secSuffix}`;
+        if (durPreset15) durPreset15.textContent = t.durPreset15;
+        if (durPreset30) durPreset30.textContent = t.durPreset30;
+        if (durPreset45) durPreset45.textContent = t.durPreset45;
         document.getElementById('lbl-skip-intro').textContent = t.lblSkipIntro;
 
         document.getElementById('card-style-title').textContent = t.cardStyleTitle;
@@ -325,6 +347,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (btnExportGifText) btnExportGifText.textContent = t.btnExportGif;
         const lblGifRes = document.getElementById('lbl-gif-resolution');
         if (lblGifRes) lblGifRes.textContent = t.lblGifResolution;
+        const lblGifHold = document.getElementById('lbl-gif-hold-last-frame');
+        if (lblGifHold) lblGifHold.textContent = t.lblGifHoldLastFrame;
+        const lblGifHoldTime = document.getElementById('lbl-gif-hold-time');
+        if (lblGifHoldTime) lblGifHoldTime.textContent = t.lblGifHoldTime;
+        if (gifHoldTimeVal) gifHoldTimeVal.textContent = `${state.gifHoldLastFrameSec} ${t.secSuffix}`;
         playText.textContent = state.isPlaying ? t.btnPause : t.btnStart;
 
         document.getElementById('modal-title').textContent = t.modalTitle;
@@ -406,6 +433,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         simulation.setImageData(processed);
+        audioEngine.invalidateCache();
         updateCanvasDimensions();
         updateUI();
     }
@@ -459,6 +487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         aspectAuto.textContent = `${t.aspectAuto} (256×192)`;
 
         simulation.setImageData(processed);
+        audioEngine.invalidateCache();
         updateCanvasDimensions();
         updateUI();
     }
@@ -500,7 +529,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (state.soundEnabled) {
             audioEngine.setVolume(state.volume);
-            audioEngine.playTimeline(state.duration, simulation.timeline, state.currentTime);
+            const scrBytes = simulation.processedData?.scrBytes || null;
+            audioEngine.playTimeline(state.duration, simulation.timeline, state.currentTime, scrBytes);
         }
 
         lastTimestamp = performance.now();
@@ -599,7 +629,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const h = oscCanvas.height;
         oscCtx.clearRect(0, 0, w, h);
 
-        if (!state.isPlaying || !state.soundEnabled) {
+        const phase = simulation.timeline.getPhaseAt(state.currentTime);
+
+        if (!state.isPlaying || !state.soundEnabled || phase.type === 'boot' || phase.type === 'typing' || phase.type === 'pause') {
             oscCtx.strokeStyle = '#2b3040';
             oscCtx.beginPath();
             oscCtx.moveTo(0, h / 2);
@@ -607,8 +639,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             oscCtx.stroke();
             return;
         }
-
-        const phase = simulation.timeline.getPhaseAt(state.currentTime);
         oscCtx.strokeStyle = phase.border === 'pilot' ? '#00cdcd' : phase.border === 'data' ? '#cdcd00' : '#44ffaa';
         oscCtx.lineWidth = 1.5;
         oscCtx.beginPath();
@@ -758,19 +788,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 12. Settings Event Listeners
+    function updateDurationPills(d) {
+        if (!durPreset15 || !durPreset30 || !durPreset45) return;
+        durPreset15.classList.toggle('active', d === 15);
+        durPreset30.classList.toggle('active', d === 30);
+        durPreset45.classList.toggle('active', d === 45);
+    }
+
+    function setDuration(d) {
+        state.duration = d;
+        durationSlider.value = d;
+        durationVal.textContent = `${d} ${I18N[state.lang].secSuffix}`;
+        simulation.timeline.setDuration(d);
+        audioEngine.invalidateCache();
+        if (state.currentTime > d) state.currentTime = d;
+        simulation.renderAtTime(state.currentTime);
+        updateDurationPills(d);
+        updateUI();
+    }
+
+    if (durPreset15) durPreset15.addEventListener('click', () => setDuration(15));
+    if (durPreset30) durPreset30.addEventListener('click', () => setDuration(30));
+    if (durPreset45) durPreset45.addEventListener('click', () => setDuration(45));
+
     durationSlider.addEventListener('input', (e) => {
         const d = parseInt(e.target.value, 10);
         state.duration = d;
         durationVal.textContent = `${d} ${I18N[state.lang].secSuffix}`;
         simulation.timeline.setDuration(d);
+        audioEngine.invalidateCache();
         if (state.currentTime > d) state.currentTime = d;
         simulation.renderAtTime(state.currentTime);
+        updateDurationPills(d);
         updateUI();
     });
 
     skipIntroCheckbox.addEventListener('change', (e) => {
         state.skipIntro = e.target.checked;
         simulation.timeline.setSkipIntro(state.skipIntro);
+        audioEngine.invalidateCache();
         simulation.renderAtTime(state.currentTime);
         updateUI();
     });
@@ -779,6 +835,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const title = e.target.value.toUpperCase().slice(0, 10);
         state.programTitle = title;
         simulation.timeline.setProgramTitle(title);
+        audioEngine.invalidateCache();
         simulation.renderAtTime(state.currentTime);
         updateUI();
     });
@@ -939,6 +996,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (gifHoldLastFrameCheckbox) {
+        gifHoldLastFrameCheckbox.addEventListener('change', (e) => {
+            state.gifHoldLastFrame = e.target.checked;
+            if (gifHoldControls) {
+                gifHoldControls.style.opacity = state.gifHoldLastFrame ? '1' : '0.4';
+                gifHoldControls.style.pointerEvents = state.gifHoldLastFrame ? 'auto' : 'none';
+            }
+        });
+    }
+
+    if (gifHoldTimeSlider) {
+        gifHoldTimeSlider.addEventListener('input', (e) => {
+            const sec = parseInt(e.target.value, 10);
+            state.gifHoldLastFrameSec = sec;
+            if (gifHoldTimeVal) {
+                gifHoldTimeVal.textContent = `${sec} ${I18N[state.lang].secSuffix}`;
+            }
+        });
+    }
+
     askSaveLocationCheckbox.addEventListener('change', (e) => {
         state.askSaveLocation = e.target.checked;
     });
@@ -1064,6 +1141,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 duration: state.duration,
                 fps: 15,
                 width: state.gifResolution,
+                holdLastFrame: state.gifHoldLastFrame,
+                holdLastFrameSec: state.gifHoldLastFrameSec,
                 askSaveLocation: state.askSaveLocation,
                 onProgress: (p) => {
                     modalPercent.textContent = `${p.percent}%`;
