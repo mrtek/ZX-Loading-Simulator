@@ -2,6 +2,11 @@
 
 **English** | [Русский](README.md)
 
+> [!TIP]
+> ### 🌐 Run Online in One Click:
+> ## 👉 **[mrtek.github.io/ZX-Loading-Simulator](https://mrtek.github.io/ZX-Loading-Simulator/)** 👈
+> Launch right in your browser without downloading or installing anything!
+
 ![ZX Spectrum Tape Loading Simulator](screenshots/tlsEN.png)
 
 An interactive simulation and video studio for generating authentic tape loading videos of images on the legendary **ZX Spectrum 48K** computer.
@@ -10,9 +15,16 @@ An interactive simulation and video studio for generating authentic tape loading
 
 ---
 
-## 🚀 Quick Start
+## 🚀 How to Run
 
-Simply **double-click the file**:
+### 🌐 Option 1. Online in Browser (Instant Launch)
+Simply open the link:
+### 🔗 **[https://mrtek.github.io/ZX-Loading-Simulator/](https://mrtek.github.io/ZX-Loading-Simulator/)**
+
+---
+
+### 💻 Option 2. Locally on Your Computer (Offline)
+Download the repository archive or clone it, then simply **double-click the file**:
 ```
 index.html
 ```
