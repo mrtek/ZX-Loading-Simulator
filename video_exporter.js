@@ -14,6 +14,29 @@ class ZXVideoExporter {
     }
 
     /**
+     * Checks if the browser supports MP4 recording with H.264
+     */
+    static isMp4Supported() {
+        if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
+            return false;
+        }
+        const mp4Candidates = [
+            'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+            'video/mp4;codecs=avc1,mp4a.40.2',
+            'video/mp4;codecs=avc1',
+            'video/mp4;codecs=h264,aac',
+            'video/mp4'
+        ];
+        return mp4Candidates.some(type => {
+            try {
+                return MediaRecorder.isTypeSupported(type);
+            } catch (e) {
+                return false;
+            }
+        });
+    }
+
+    /**
      * Finds the best supported MIME type for the browser and preferred format.
      * Guaranteed to work across Chrome, Edge, Firefox, Opera, and Safari.
      */

@@ -311,16 +311,7 @@ body {
     box-sizing: border-box;
 }
 
-.crt-monitor-cabinet::before {
-    content: "SINCLAIR ZX SPECTRUM 48K MICRODRIVE";
-    position: absolute;
-    top: 4px;
-    left: 20px;
-    font-size: 8.5px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    color: #4a4f63;
-}
+
 
 .crt-bezel {
     width: 100%;
@@ -488,6 +479,22 @@ body {
     transform: translateY(-1px);
     box-shadow: 0 6px 20px rgba(0, 205, 205, 0.5);
     background: linear-gradient(135deg, #00ffff 0%, #009aa9 100%);
+}
+
+.export-btn-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.export-realtime-hint {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: right;
+    max-width: 260px;
+    line-height: 1.25;
+    letter-spacing: 0.2px;
 }
 
 /* Cassette Visualizer */
@@ -764,15 +771,21 @@ body {
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    padding: 5px 8px;
-    color: #fff;
-    font-size: 12px;
+    padding: 7px 10px;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
     outline: none;
     font-family: var(--font-retro);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: all 0.15s ease;
 }
 
 .input-text:focus {
     border-color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(0, 245, 212, 0.3);
+    background: #090a0f;
 }
 
 .toggle-pills {
@@ -802,6 +815,20 @@ body {
     background: #2d3448;
     color: var(--accent-cyan);
     box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.toggle-pill.disabled {
+    opacity: 0.35;
+    cursor: not-allowed !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.toggle-pill.disabled:hover {
+    background: transparent !important;
+    color: var(--text-muted) !important;
 }
 
 .checkbox-row {

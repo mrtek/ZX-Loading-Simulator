@@ -14,9 +14,12 @@ const I18N = {
         cardUploadTitle: "Загрузка изображения",
         lblBtnUpload: "Загрузить своё изображение...",
         dropText: "Перетащите картинку сюда",
-        dropHint: "или нажмите для выбора файла (PNG, JPG, WEBP)",
-        btnPresetDragon: "🐲 Дракон (1024×546)",
+        dropHint: "или нажмите для выбора файла (PNG, JPG, WEBP, SCR)",
         btnPresetJetpac: "Jetpac",
+        btnPresetHobbit: "📜 The Hobbit (.SCR)",
+        alertInvalidFile: "Пожалуйста, выберите файл изображения (PNG, JPG, WEBP) или экран ZX Spectrum (.SCR).",
+        lblExportHint: "Экспорт видео происходит в реальном времени (15 сек. будут экспортироваться 15 сек.)",
+        mp4NotSupported: "Формат MP4 (H.264) не поддерживается вашим браузером",
         cardDurationTitle: "Длительность видео",
         lblTotalDuration: "Общая длительность:",
         secSuffix: "сек",
@@ -69,9 +72,12 @@ const I18N = {
         cardUploadTitle: "Image Upload",
         lblBtnUpload: "Upload custom image...",
         dropText: "Drag & drop image here",
-        dropHint: "or click to select file (PNG, JPG, WEBP)",
-        btnPresetDragon: "🐲 Dragon (1024×546)",
+        dropHint: "or click to select file (PNG, JPG, WEBP, SCR)",
         btnPresetJetpac: "Jetpac",
+        btnPresetHobbit: "📜 The Hobbit (.SCR)",
+        alertInvalidFile: "Please select an image file (PNG, JPG, WEBP) or ZX Spectrum screen (.SCR).",
+        lblExportHint: "Video export is in real-time (15s will export in 15s)",
+        mp4NotSupported: "MP4 (H.264) format is not supported by your browser",
         cardDurationTitle: "Video Duration",
         lblTotalDuration: "Total duration:",
         secSuffix: "sec",
@@ -133,6 +139,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const wheelRight = document.getElementById('wheel-right');
     const oscCanvas = document.getElementById('oscilloscope-canvas');
     const oscCtx = oscCanvas.getContext('2d');
+
+    // Initialize oscilloscope canvas size once and update only on resize
+    oscCanvas.width = oscCanvas.clientWidth || 200;
+    oscCanvas.height = oscCanvas.clientHeight || 24;
+    const oscResizeObserver = new ResizeObserver(() => {
+        oscCanvas.width = oscCanvas.clientWidth || 200;
+        oscCanvas.height = oscCanvas.clientHeight || 24;
+    });
+    oscResizeObserver.observe(oscCanvas);
     const tapeDriveLabel = document.getElementById('tape-drive-label');
 
     const cardUploadHeader = document.getElementById('card-upload-header');
@@ -142,12 +157,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dropZoneText = document.getElementById('drop-zone-text');
     const dropZoneHint = document.getElementById('drop-zone-hint');
     const fileInput = document.getElementById('file-input');
-    const btnPresetDragon = document.getElementById('btn-preset-dragon');
     const btnPresetJetpac = document.getElementById('btn-preset-jetpac');
+    const btnPresetHobbit = document.getElementById('btn-preset-hobbit');
     const imagePreviewContainer = document.getElementById('image-preview-container');
     const imageThumb = document.getElementById('image-thumb');
     const imageFilename = document.getElementById('image-filename');
     const imageDimensions = document.getElementById('image-dimensions');
+    const lblExportHint = document.getElementById('lbl-export-hint');
 
     const durationSlider = document.getElementById('duration-slider');
     const durationVal = document.getElementById('duration-val');
@@ -182,8 +198,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const modalStatus = document.getElementById('modal-status');
     const modalSavedPath = document.getElementById('modal-saved-path');
     const btnCancelExport = document.getElementById('btn-cancel-export');
-    const btnDownloadVideo = document.getElementById('btn-download-video');
-    const btnDownloadText = document.getElementById('btn-download-text');
 
     const langRu = document.getElementById('lang-ru');
     const langEn = document.getElementById('lang-en');
@@ -193,7 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         lang: localStorage.getItem('zx_lang') || 'ru',
         duration: 15,
         skipIntro: false,
-        programTitle: 'DRAGON',
+        programTitle: 'JETPAC',
         renderMode: 'truecolor',
         aspectMode: 'auto',
         borderStyle: 'standard',
@@ -205,7 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         isPlaying: false,
         currentTime: 0,
         currentImage: null,
-        currentImageName: 'dragon.png'
+        currentImageName: 'jetpac.png'
     };
 
     // 3. Initialize Core Engines
@@ -249,8 +263,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (lblBtnUpload) lblBtnUpload.textContent = t.lblBtnUpload;
         dropZoneText.textContent = t.dropText;
         dropZoneHint.textContent = t.dropHint;
-        btnPresetDragon.textContent = t.btnPresetDragon;
         btnPresetJetpac.textContent = t.btnPresetJetpac;
+        if (btnPresetHobbit) btnPresetHobbit.textContent = t.btnPresetHobbit;
 
         document.getElementById('card-duration-title').textContent = t.cardDurationTitle;
         document.getElementById('lbl-total-duration').textContent = t.lblTotalDuration;
@@ -291,6 +305,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         document.getElementById('modal-title').textContent = t.modalTitle;
         document.getElementById('btn-cancel-text').textContent = t.btnCancelText;
+        if (fmtMp4 && fmtMp4.classList.contains('disabled')) {
+            fmtMp4.title = t.mp4NotSupported;
+        }
         updateUI();
     }
 
@@ -369,21 +386,72 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateUI();
     }
 
-    // Load default image (Dragon 1024x546)
+    function base64ToUint8Array(base64) {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    }
+
+    function processAndLoadScr(scrData, filename = 'loading.scr') {
+        const t = I18N[state.lang];
+        let processed = null;
+        try {
+            processed = converter.processScr(scrData);
+        } catch (err) {
+            console.error('Failed to parse SCR:', err);
+            alert('Ошибка загрузки .SCR: ' + err.message);
+            return;
+        }
+
+        const scrImg = new Image();
+        scrImg.src = processed.previewUrl;
+        scrImg.width = 256;
+        scrImg.height = 192;
+        state.currentImage = scrImg;
+
+        if (filename) {
+            state.currentImageName = filename;
+            imageFilename.textContent = filename;
+            let base = filename.replace(/\.[^/.]+$/, '').toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 10);
+            if (base === 'LOADING' && (filename.toLowerCase().includes('hobbit') || filename.toLowerCase() === 'loading.scr')) {
+                base = 'HOBBIT';
+            }
+            if (base) {
+                state.programTitle = base;
+                programTitleInput.value = base;
+                simulation.timeline.setProgramTitle(base);
+            }
+        }
+
+        imageDimensions.textContent = '256 × 192 px (.SCR)';
+        imageThumb.src = processed.previewUrl;
+        imagePreviewContainer.style.display = 'flex';
+        dropZone.style.display = 'none';
+
+        aspectAuto.textContent = `${t.aspectAuto} (256×192)`;
+
+        simulation.setImageData(processed);
+        updateCanvasDimensions();
+        updateUI();
+    }
+
+    // Load default image (Jetpac)
     function loadDefaultImage() {
         const defaultImg = new Image();
         defaultImg.onload = () => {
-            processAndLoadImage(defaultImg, 'dragon.png');
+            processAndLoadImage(defaultImg, 'jetpac.png');
         };
         defaultImg.onerror = () => {
-            const fallback = new Image();
-            fallback.onload = () => processAndLoadImage(fallback, 'jetpac.png');
-            fallback.src = window.DEFAULT_JETPAC_DATA || './assets/img/jet-pac-zx-spectrum-loading-screen.png';
+            if (window.DEFAULT_HOBBIT_SCR_BASE64) {
+                const bytes = base64ToUint8Array(window.DEFAULT_HOBBIT_SCR_BASE64);
+                processAndLoadScr(bytes, 'the_hobbit.scr');
+            }
         };
-        defaultImg.src = window.DEFAULT_DRAGON_DATA || './assets/img/dragon.png';
-        if (defaultImg.complete && (defaultImg.naturalWidth || defaultImg.width) > 0) {
-            processAndLoadImage(defaultImg, 'dragon.png');
-        }
+        defaultImg.src = window.DEFAULT_JETPAC_DATA || './assets/img/jet-pac-zx-spectrum-loading-screen.png';
     }
     loadDefaultImage();
 
@@ -494,11 +562,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const phase = simulation.timeline.getPhaseAt(state.currentTime);
         phasePill.textContent = getPhaseDescription(phase);
+
+        if (lblExportHint) {
+            lblExportHint.textContent = (state.lang === 'ru') 
+                ? `Экспорт видео происходит в реальном времени (то есть ${state.duration} сек. будут экспортироваться ${state.duration} сек.)` 
+                : `Video export is in real-time (${state.duration}s will export in ${state.duration}s)`;
+        }
     }
 
     function drawOscilloscope() {
-        const w = oscCanvas.width = oscCanvas.clientWidth;
-        const h = oscCanvas.height = oscCanvas.clientHeight;
+        const w = oscCanvas.width;
+        const h = oscCanvas.height;
         oscCtx.clearRect(0, 0, w, h);
 
         if (!state.isPlaying || !state.soundEnabled) {
@@ -568,7 +642,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            handleImageFile(e.dataTransfer.files[0]);
+            handleFile(e.dataTransfer.files[0]);
         }
     });
 
@@ -584,7 +658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
         imagePreviewContainer.style.borderColor = '';
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            handleImageFile(e.dataTransfer.files[0]);
+            handleFile(e.dataTransfer.files[0]);
         }
     });
 
@@ -595,52 +669,68 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('drop', (e) => {
         if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
-            if (file.type && file.type.startsWith('image/')) {
+            const isScr = file.name.toLowerCase().endsWith('.scr') || file.size === 6912;
+            if (isScr || (file.type && file.type.startsWith('image/')) || /\.(png|jpe?g|webp|bmp|gif)$/i.test(file.name)) {
                 e.preventDefault();
-                handleImageFile(file);
+                handleFile(file);
             }
         }
     });
 
     fileInput.addEventListener('change', (e) => {
         if (e.target.files && e.target.files[0]) {
-            handleImageFile(e.target.files[0]);
+            handleFile(e.target.files[0]);
         }
-    });
-
-    btnPresetDragon.addEventListener('click', () => {
-        const img = new Image();
-        img.onload = () => processAndLoadImage(img, 'dragon.png');
-        img.src = window.DEFAULT_DRAGON_DATA || './assets/img/dragon.png';
-        if (img.complete && (img.naturalWidth || img.width) > 0) {
-            processAndLoadImage(img, 'dragon.png');
-        }
+        fileInput.value = ''; // Reset so re-selecting the same file triggers change
     });
 
     btnPresetJetpac.addEventListener('click', () => {
         const img = new Image();
         img.onload = () => processAndLoadImage(img, 'jetpac.png');
         img.src = window.DEFAULT_JETPAC_DATA || './assets/img/jet-pac-zx-spectrum-loading-screen.png';
-        if (img.complete && (img.naturalWidth || img.width) > 0) {
-            processAndLoadImage(img, 'jetpac.png');
-        }
     });
 
-    function handleImageFile(file) {
-        if (!file.type.startsWith('image/')) {
-            alert('Пожалуйста, выберите файл изображения (PNG, JPG, WEBP).');
+    if (btnPresetHobbit) {
+        btnPresetHobbit.addEventListener('click', () => {
+            if (window.DEFAULT_HOBBIT_SCR_BASE64) {
+                const bytes = base64ToUint8Array(window.DEFAULT_HOBBIT_SCR_BASE64);
+                processAndLoadScr(bytes, 'the_hobbit.scr');
+            } else {
+                fetch('./assets/img/loading.scr')
+                    .then(r => r.arrayBuffer())
+                    .then(buf => processAndLoadScr(buf, 'the_hobbit.scr'))
+                    .catch(err => {
+                        console.error('Fetch loading.scr failed:', err);
+                    });
+            }
+        });
+    }
+
+    function handleFile(file) {
+        const isScr = file.name.toLowerCase().endsWith('.scr') || file.size === 6912;
+        if (isScr) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                processAndLoadScr(event.target.result, file.name);
+            };
+            reader.readAsArrayBuffer(file);
             return;
         }
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                processAndLoadImage(img, file.name);
+        if ((file.type && file.type.startsWith('image/')) || /\.(png|jpe?g|webp|bmp|gif)$/i.test(file.name)) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    processAndLoadImage(img, file.name);
+                };
+                img.src = event.target.result;
             };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
+            reader.readAsDataURL(file);
+            return;
+        }
+
+        alert(I18N[state.lang].alertInvalidFile || 'Пожалуйста, выберите файл изображения (PNG, JPG, WEBP) или экран ZX Spectrum (.SCR).');
     }
 
     // 12. Settings Event Listeners
@@ -774,7 +864,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         res720p.classList.remove('active');
     });
 
+    // Check browser MP4 support
+    const isMp4Supported = (typeof ZXVideoExporter !== 'undefined' && ZXVideoExporter.isMp4Supported) ? ZXVideoExporter.isMp4Supported() : false;
+    if (!isMp4Supported) {
+        fmtMp4.classList.add('disabled');
+        fmtMp4.title = I18N[state.lang].mp4NotSupported;
+        state.exportFormat = 'webm';
+        fmtWebm.classList.add('active');
+        fmtMp4.classList.remove('active');
+    }
+
     fmtMp4.addEventListener('click', () => {
+        if (fmtMp4.classList.contains('disabled')) return;
         state.exportFormat = 'mp4';
         fmtMp4.classList.add('active');
         fmtWebm.classList.remove('active');
@@ -832,8 +933,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         progressBarFill.style.width = '0%';
         modalStatus.textContent = t.modalInit;
         modalSavedPath.style.display = 'none';
-        btnDownloadVideo.style.display = 'none';
-        btnDownloadVideo.onclick = null;
         btnCancelExport.textContent = t.btnCancelText;
 
         const res = await exporter.exportVideo({
@@ -852,16 +951,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 modalSavedPath.textContent = `💾 ${r.filename}`;
                 btnCancelExport.textContent = (state.lang === 'ru') ? 'Закрыть' : 'Close';
 
-                // Provide direct download button with fresh user gesture
-                btnDownloadVideo.style.display = 'block';
-                btnDownloadText.textContent = (state.lang === 'ru')
-                    ? `💾 Скачать файл (${r.filename})`
-                    : `💾 Download file (${r.filename})`;
-
-                btnDownloadVideo.onclick = async () => {
-                    await exporter.saveAsWithPicker(r.blob, r.filename, r.format, r.cleanMime);
-                };
-
                 setTimeout(() => {
                     canvas.width = origWidth;
                     canvas.height = origHeight;
@@ -869,6 +958,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }, 1000);
             },
             onError: (err) => {
+                // Only show error and restore if modal is still active (not already closed by cancel button)
+                if (!exportModal.classList.contains('active')) return;
                 modalStatus.textContent = `Error: ${err.message}`;
                 setTimeout(() => {
                     exportModal.classList.remove('active');
@@ -891,7 +982,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnCancelExport.addEventListener('click', () => {
         exporter.cancel();
         exportModal.classList.remove('active');
-        updateCanvasDimensions();
+        updateCanvasDimensions(); // Restores correct canvas size based on current aspect mode
         simulation.renderAtTime(state.currentTime);
     });
 

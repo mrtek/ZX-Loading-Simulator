@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ZX Spectrum Loading Simulation &amp; Video Studio</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
     <div class="sinclair-rainbow-bar"></div>
@@ -53,9 +53,14 @@
                         </button>
                     </div>
 
-                    <button id="btn-export-trigger" class="btn btn-export">
-                        <span id="btn-export-text">🎬 Экспорт Видео</span>
-                    </button>
+                    <div class="export-btn-container">
+                        <button id="btn-export-trigger" class="btn btn-export">
+                            <span id="btn-export-text">🎬 Экспорт Видео</span>
+                        </button>
+                        <div id="lbl-export-hint" class="export-realtime-hint">
+                            Экспорт видео происходит в реальном времени (15 сек. будут экспортироваться 15 сек.)
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -80,7 +85,7 @@
                         <span class="icon">📁</span> <span id="card-upload-title">Загрузка изображения</span>
                     </div>
 
-                    <input type="file" id="file-input" accept="image/*" style="display: none;">
+                    <input type="file" id="file-input" accept="image/*,.scr,.SCR" style="display: none;">
 
                     <button id="btn-upload-file" class="btn btn-upload-prominent" type="button">
                         📂 <span id="lbl-btn-upload">Загрузить своё изображение...</span>
@@ -89,20 +94,20 @@
                     <div id="drop-zone" class="drop-zone">
                         <div class="drop-zone-icon">📥</div>
                         <div id="drop-zone-text" class="drop-zone-text">Перетащите картинку сюда</div>
-                        <div id="drop-zone-hint" class="drop-zone-hint">или нажмите для выбора файла (PNG, JPG, WEBP)</div>
+                        <div id="drop-zone-hint" class="drop-zone-hint">или нажмите для выбора файла (PNG, JPG, WEBP, SCR)</div>
                     </div>
 
                     <div id="image-preview-container" class="image-preview-row" style="display: none;" title="Нажмите для выбора другой картинки">
                         <img id="image-thumb" class="image-preview-thumb" src="" alt="Thumbnail">
                         <div class="image-info">
-                            <div id="image-filename" class="image-filename">dragon.png</div>
-                            <div id="image-dimensions" class="image-meta">1024 × 546 px</div>
+                            <div id="image-filename" class="image-filename">jetpac.png</div>
+                            <div id="image-dimensions" class="image-meta">256 × 192 px</div>
                         </div>
                     </div>
 
                     <div class="btn-preset-group">
-                        <button id="btn-preset-dragon" class="btn btn-primary btn-sm">🐲 Дракон (1024×546)</button>
                         <button id="btn-preset-jetpac" class="btn btn-primary btn-sm">Jetpac</button>
+                        <button id="btn-preset-hobbit" class="btn btn-primary btn-sm">📜 The Hobbit (.SCR)</button>
                     </div>
                 </div>
 
@@ -116,7 +121,7 @@
                         <div class="label-row">
                             <span id="lbl-program-title">Название программы (Header):</span>
                         </div>
-                        <input type="text" id="program-title-input" class="input-text" maxlength="10" value="DRAGON">
+                        <input type="text" id="program-title-input" class="input-text" maxlength="10" value="JETPAC">
                     </div>
 
                     <div class="form-group">
@@ -244,22 +249,18 @@
             <div id="modal-status" class="modal-status-text">Инициализация записи...</div>
             <div id="modal-saved-path" class="saved-location-box" style="display: none;"></div>
 
-            <button id="btn-download-video" class="btn btn-export" style="margin-top: 12px; width: 100%; display: none;">
-                <span id="btn-download-text">💾 Скачать видео файл</span>
-            </button>
-
-            <button id="btn-cancel-export" class="btn btn-primary" style="margin-top: 8px; width: 100%;">
+            <button id="btn-cancel-export" class="btn btn-primary" style="margin-top: 12px; width: 100%;">
                 <span id="btn-cancel-text">Отмена</span>
             </button>
         </div>
     </div>
 
     <!-- Application Scripts -->
-    <script src="assets/default_images.js?v=10"></script>
-    <script src="zx_converter.js?v=10"></script>
-    <script src="zx_audio.js?v=10"></script>
-    <script src="zx_emulator.js?v=10"></script>
-    <script src="video_exporter.js?v=10"></script>
-    <script src="app.js?v=10"></script>
+    <script src="assets/default_images.js?v=11"></script>
+    <script src="zx_converter.js?v=11"></script>
+    <script src="zx_audio.js?v=11"></script>
+    <script src="zx_emulator.js?v=11"></script>
+    <script src="video_exporter.js?v=11"></script>
+    <script src="app.js?v=11"></script>
 </body>
 </html>

@@ -21,6 +21,10 @@ class ZXAudioEngine {
 
         // Current real-time nodes
         this.activeSource = null;
+
+        // Audio buffer cache to avoid expensive regeneration on every Play press
+        this._cachedBuffer = null;
+        this._cacheKey = '';
     }
 
     init() {
@@ -59,6 +63,14 @@ class ZXAudioEngine {
     getMediaStreamTrack() {
         this.init();
         return this.mediaStreamDestination.stream.getAudioTracks()[0];
+    }
+
+    /**
+     * Invalidate the cached audio buffer (call when timeline parameters change)
+     */
+    invalidateCache() {
+        this._cachedBuffer = null;
+        this._cacheKey = '';
     }
 
     /**
@@ -149,15 +161,22 @@ class ZXAudioEngine {
     }
 
     /**
-     * Start playing synthesized audio for the given timeline from startTime
+     * Start playing synthesized audio for the given timeline from startTime.
+     * Uses cached buffer when timeline parameters haven't changed.
      */
     playTimeline(totalDuration, timeline, startTime = 0) {
         this.init();
         this.stop();
 
-        const buffer = this.generateAudioBuffer(totalDuration, timeline, this.audioCtx.sampleRate);
+        // Build a cache key from timeline parameters that affect audio generation
+        const cacheKey = `${totalDuration}_${timeline.skipIntro}_${timeline.phases.length}_${this.audioCtx.sampleRate}`;
+        if (this._cacheKey !== cacheKey || !this._cachedBuffer) {
+            this._cachedBuffer = this.generateAudioBuffer(totalDuration, timeline, this.audioCtx.sampleRate);
+            this._cacheKey = cacheKey;
+        }
+
         const source = this.audioCtx.createBufferSource();
-        source.buffer = buffer;
+        source.buffer = this._cachedBuffer;
         source.connect(this.masterGain);
 
         const offset = Math.max(0, Math.min(totalDuration, startTime));

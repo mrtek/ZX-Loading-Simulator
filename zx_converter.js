@@ -186,6 +186,131 @@ class ZXImageConverter {
             scanlineOrder
         };
     }
+
+    /**
+     * Processes native ZX Spectrum .SCR screen dump (6912 bytes: 6144 bytes bitmap + 768 bytes attributes)
+     * Autonomous, 100% offline, works in any browser without external libraries.
+     * @param {ArrayBuffer|Uint8Array} scrInput Raw bytes of .SCR file
+     * @param {Object} options Optional settings
+     */
+    processScr(scrInput, options = {}) {
+        const bytes = (scrInput instanceof Uint8Array) 
+            ? scrInput 
+            : new Uint8Array(scrInput);
+
+        if (bytes.length < 6912) {
+            throw new Error(`Invalid SCR file size: ${bytes.length} bytes (expected 6912 bytes)`);
+        }
+
+        // Support standard 6912 bytes, or files with +3DOS/TAP header (128 bytes or 7 bytes)
+        let scrOffset = 0;
+        if (bytes.length === 6912 + 128) {
+            scrOffset = 128; // +3DOS header
+        } else if (bytes.length === 6912 + 7) {
+            scrOffset = 7; // TAP block header
+        } else if (bytes.length > 6912) {
+            scrOffset = 0;
+        }
+
+        const width = 256;
+        const height = 192;
+        const aspectRatio = width / height; // 4:3
+
+        // 1. Monochrome canvas for the bitmap loading phase
+        // In real ZX Spectrum loading, CLS clears attributes to Paper 7 (White) and Ink 0 (Black).
+        // During the bitmap phase, each '1' bit renders as Black and each '0' bit as White.
+        const monoCanvas = document.createElement('canvas');
+        monoCanvas.width = width;
+        monoCanvas.height = height;
+        const mCtx = monoCanvas.getContext('2d', { willReadFrequently: true });
+        mCtx.imageSmoothingEnabled = false;
+        const monoImageData = mCtx.createImageData(width, height);
+        const monoPixels = monoImageData.data;
+
+        for (let y = 0; y < 192; y++) {
+            const third = Math.floor(y / 64);
+            const lineInChar = y % 8;
+            const charRow = Math.floor((y % 64) / 8);
+            const lineStart = scrOffset + third * 2048 + lineInChar * 256 + charRow * 32;
+
+            for (let col = 0; col < 32; col++) {
+                const byteVal = bytes[lineStart + col];
+                for (let bit = 7; bit >= 0; bit--) {
+                    const x = col * 8 + (7 - bit);
+                    const isInk = (byteVal & (1 << bit)) !== 0;
+                    const val = isInk ? 0 : 255;
+                    const idx = (y * width + x) * 4;
+                    monoPixels[idx] = val;
+                    monoPixels[idx + 1] = val;
+                    monoPixels[idx + 2] = val;
+                    monoPixels[idx + 3] = 255;
+                }
+            }
+        }
+        mCtx.putImageData(monoImageData, 0, 0);
+
+        // 2. Authentic 16-color canvas with ZX Spectrum attribute decoding
+        const authenticColorCanvas = document.createElement('canvas');
+        authenticColorCanvas.width = width;
+        authenticColorCanvas.height = height;
+        const acCtx = authenticColorCanvas.getContext('2d', { willReadFrequently: true });
+        acCtx.imageSmoothingEnabled = false;
+        const authImageData = acCtx.createImageData(width, height);
+        const authPixels = authImageData.data;
+
+        const attrStart = scrOffset + 6144;
+
+        for (let y = 0; y < 192; y++) {
+            const third = Math.floor(y / 64);
+            const lineInChar = y % 8;
+            const charRow = Math.floor((y % 64) / 8);
+            const lineStart = scrOffset + third * 2048 + lineInChar * 256 + charRow * 32;
+            const charY = Math.floor(y / 8);
+
+            for (let col = 0; col < 32; col++) {
+                const byteVal = bytes[lineStart + col];
+                const attrByte = bytes[attrStart + charY * 32 + col];
+
+                const ink = attrByte & 0x07;
+                const paper = (attrByte >> 3) & 0x07;
+                const bright = (attrByte & 0x40) ? 8 : 0;
+                const inkColor = ZX_PALETTE[ink + bright];
+                const paperColor = ZX_PALETTE[paper + bright];
+
+                for (let bit = 7; bit >= 0; bit--) {
+                    const x = col * 8 + (7 - bit);
+                    const isInk = (byteVal & (1 << bit)) !== 0;
+                    const color = isInk ? inkColor : paperColor;
+                    const idx = (y * width + x) * 4;
+                    authPixels[idx] = color.r;
+                    authPixels[idx + 1] = color.g;
+                    authPixels[idx + 2] = color.b;
+                    authPixels[idx + 3] = 255;
+                }
+            }
+        }
+        acCtx.putImageData(authImageData, 0, 0);
+
+        const scanlineOrder = generateZXScanlineOrder(height);
+        let previewUrl = '';
+        try {
+            previewUrl = authenticColorCanvas.toDataURL('image/png');
+        } catch (e) {
+            console.warn('Preview URL creation failed:', e);
+        }
+
+        return {
+            width,
+            height,
+            aspectRatio,
+            fullColorCanvas: authenticColorCanvas,
+            authenticColorCanvas: authenticColorCanvas,
+            monoCanvas: monoCanvas,
+            scanlineOrder,
+            previewUrl,
+            isScr: true
+        };
+    }
 }
 
 if (typeof window !== 'undefined') {
